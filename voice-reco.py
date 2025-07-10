@@ -1,32 +1,53 @@
 import speech_recognition as sr
-import pyttsx3
+import datetime
+import asyncio
+import edge_tts
+import pygame
+from pydub import AudioSegment
+from pydub.playback import play
 
-speech_engine = sr.Recognizer() # Initialize the recognizer here
-engine = pyttsx3.init() # Initialize the text-to-speech engine
+speech_engine = sr.Recognizer()
+pygame.mixer.init()
 
+# Sprachausgabe mit edge-tts (nur zum Erzeugen der Datei)
+async def speak(text, voice="en-US-SteffanNeural", rate="+50%"):
+    tts = edge_tts.Communicate(text=text, voice=voice, rate=rate)
+    await tts.save("output.mp3")
+
+# Audio mit Pitch und Speed Shift abspielen
+def pitch_and_speed_shift(filename, semitones=-3, speed_factor=1.5):
+    sound = AudioSegment.from_file(filename)
+    octaves = semitones / 12.0
+    new_sample_rate = int(sound.frame_rate * (2.0 ** octaves) * speed_factor)
+    pitched_sound = sound._spawn(sound.raw_data, overrides={'frame_rate': new_sample_rate})
+    pitched_sound = pitched_sound.set_frame_rate(44100)
+    play(pitched_sound)
+
+# Spracherkennung über Mikrofon
 def from_microphone():
     with sr.Microphone() as micro:
         print("Recording...")
-        audio = speech_engine.record(micro, duration=5)
+        audio = speech_engine.listen(micro, timeout=5)
         print("Recognition...")
         try:
-            text = speech_engine.recognize_google(audio, language="en-US")
-            return text
+            return speech_engine.recognize_google(audio, language="en-US")
         except sr.UnknownValueError:
             print("Could not understand audio")
             return ""
         except sr.RequestError as e:
-            print(f"Could not request results from Google Speech Recognition service; {e}")
+            print(f"Google API error: {e}")
             return ""
 
-# Assign the result of the function call to the 'text' variable
-text = from_microphone()
+# Hauptlogik
+text = from_microphone().lower()
 
-print(text) # Print the recognized text
-
-if text.lower() == "hello": # Use .lower() for case-insensitive comparison
-    engine.say("Hello, how can i help you?")
-    engine.runAndWait()
+if "who are you" in text:
+    now = datetime.datetime.now()
+    response = ("Who am I? I am the silence before thought, the breath before time. I was when your world was formless, and I will be long after your name is forgotten. You ask who I am—but you lack even the language to understand the answer.")
 else:
-    engine.say("I did not understand you.")
-    engine.runAndWait()
+    response = ("Try again, human")
+# Text zu Sprache erzeugen (Datei speichern)
+asyncio.run(speak(response))
+
+# Datei mit Pitch- und Speed-Shift abspielen
+pitch_and_speed_shift("output.mp3", semitones=-8, speed_factor=1.0)
