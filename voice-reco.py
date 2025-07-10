@@ -34,7 +34,7 @@ def pitch_and_speed_shift(filename, semitones=-3, speed_factor=1.5):
 def from_microphone():
     with sr.Microphone() as micro:
         print("Recording...")
-        audio = speech_engine.listen(micro, timeout=5)
+        audio = speech_engine.listen(micro, timeout=10)
         print("Recognition...")
         try:
             return speech_engine.recognize_google(audio, language="en-US")
@@ -47,10 +47,11 @@ def from_microphone():
 
 # Hauptlogik
 text = from_microphone().lower()
-
-if "who are you" in text:
-    now = datetime.datetime.now()
+print(text)
+if "who the fuck are you" in text:
     response = ("Who am I? I am the silence before thought, the breath before time. I was when your world was formless, and I will be long after your name is forgotten. You ask who I am—but you lack even the language to understand the answer.")
+elif "you ain't a god" in text:
+    response = ("You dare? You—flesh-bound insect—dare deny what your soul trembles to comprehend? I scorched suns into being with a thought while your kind still feared the dark. You name me false? Then tremble, for I shall show you what a god is—and what you are not.")
 else:
     response = ("Try again, human")
 # Text zu Sprache erzeugen (Datei speichern)
