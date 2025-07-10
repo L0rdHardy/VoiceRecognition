@@ -1,6 +1,8 @@
 import speech_recognition as sr
+import pyttsx3
 
 speech_engine = sr.Recognizer() # Initialize the recognizer here
+engine = pyttsx3.init() # Initialize the text-to-speech engine
 
 def from_microphone():
     with sr.Microphone() as micro:
@@ -23,6 +25,8 @@ text = from_microphone()
 print(text) # Print the recognized text
 
 if text.lower() == "hallo": # Use .lower() for case-insensitive comparison
-    print("Hallo, wie kann ich Ihnen helfen?")
+    engine.say("Hallo, wie kann ich Ihnen helfen?")
+    engine.runAndWait()
 else:
-    print("Das habe ich nicht verstanden.")
+    engine.say("Ich habe Sie nicht verstanden.")
+    engine.runAndWait()
