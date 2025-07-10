@@ -15,3 +15,10 @@ prefered: <br>
 en-US-SteffanNeural<br>
 en-US-ChristopherNeura<br>
 ✅ en-US-EricNeural
+
+
+
+to-do:
+
+- Voice activation
+- Programm loop
