@@ -12,3 +12,7 @@ pip install pydub
 Du kannst die Stimme ändern, z. B.:
 
 https://gist.github.com/BettyJJ/17cbaa1de96235a7f5773b8690a20462
+
+prefered: en-US-SteffanNeural
+en-US-ChristopherNeura
+en-US-EricNeural

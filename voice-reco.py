@@ -9,8 +9,15 @@ from pydub.playback import play
 speech_engine = sr.Recognizer()
 pygame.mixer.init()
 
+#######
+# Some nice changers for the voice
+speak_rate = "+50%"  # +50% faster
+speak_deepnes = float(-8)  # -8 semitones deeper
+speak_speed = float(1.0)  # Normal speed
+#######
+
 # Sprachausgabe mit edge-tts (nur zum Erzeugen der Datei)
-async def speak(text, voice="en-US-SteffanNeural", rate="+50%"):
+async def speak(text, voice="en-US-EricNeural", rate=speak_rate):
     tts = edge_tts.Communicate(text=text, voice=voice, rate=rate)
     await tts.save("output.mp3")
 
@@ -50,4 +57,4 @@ else:
 asyncio.run(speak(response))
 
 # Datei mit Pitch- und Speed-Shift abspielen
-pitch_and_speed_shift("output.mp3", semitones=-8, speed_factor=1.0)
+pitch_and_speed_shift("output.mp3", semitones=speak_deepnes, speed_factor=speak_speed)
