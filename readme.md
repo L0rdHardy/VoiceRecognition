@@ -1,18 +1,17 @@
-Folgende Sachen werden benötigt:
-pip install SpeechRecognition
-pip install pyaudio
-pip install pygame
-pip install edge-tts pygame
-pip install pydub
+<h1>Folgende Sachen werden benötigt:</h1><br>
+pip install SpeechRecognition<br>
+pip install pyaudio<br>
+pip install pygame<br>
+pip install edge-tts pygame<br>
+pip install pydub <br>
 
 
 
-
-✅ Andere Stimmen
-Du kannst die Stimme ändern, z. B.:
-
+<h2>Stimmen</h2>
+Beispiele:<br>
 https://gist.github.com/BettyJJ/17cbaa1de96235a7f5773b8690a20462
-
-prefered: en-US-SteffanNeural
-en-US-ChristopherNeura
-en-US-EricNeural
+<br><br>
+prefered: <br>
+en-US-SteffanNeural<br>
+en-US-ChristopherNeura<br>
+✅ en-US-EricNeural
