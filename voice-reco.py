@@ -10,7 +10,7 @@ def from_microphone():
         audio = speech_engine.record(micro, duration=5)
         print("Recognition...")
         try:
-            text = speech_engine.recognize_google(audio, language="de-DE")
+            text = speech_engine.recognize_google(audio, language="en-US")
             return text
         except sr.UnknownValueError:
             print("Could not understand audio")
@@ -24,9 +24,9 @@ text = from_microphone()
 
 print(text) # Print the recognized text
 
-if text.lower() == "hallo": # Use .lower() for case-insensitive comparison
-    engine.say("Hallo, wie kann ich Ihnen helfen?")
+if text.lower() == "hello": # Use .lower() for case-insensitive comparison
+    engine.say("Hello, how can i help you?")
     engine.runAndWait()
 else:
-    engine.say("Ich habe Sie nicht verstanden.")
+    engine.say("I did not understand you.")
     engine.runAndWait()
