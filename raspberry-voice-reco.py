@@ -21,7 +21,7 @@ SAMPLERATE = 16000
 DEVICE = "cpu"  # Force CPU usage on Raspberry Pi
 
 # === Load Whisper model ===
-model = whisper.load_model("tiny.en", device=DEVICE)
+model = whisper.load_model("tiny.en", device=DEVICE) # "tiny.en","base.en", "small.en", "medium.en", "large-v3"
 
 # === Thread executor for async operations ===
 executor = concurrent.futures.ThreadPoolExecutor()
