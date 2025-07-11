@@ -16,15 +16,16 @@ PITCH_SPEED_FACTOR = 1.0
 
 # === Audio and model settings ===
 TRIGGER_WORD = "steve"
-MIC_THRESHOLD = 0.001  # realistisch setzen, keine 0
+MIC_THRESHOLD = 0.005  # Erhöht, um Rauschen zu reduzieren
 SAMPLERATE = 16000
 DEVICE = "cpu"  # Force CPU usage on Raspberry Pi
 
 # === Load Whisper model ===
-model = whisper.load_model("tiny.en", device=DEVICE) # "tiny.en","base.en", "small.en", "medium.en", "large-v3"
+model = whisper.load_model("tiny.en", device=DEVICE) 
 
 # === Thread executor for async operations ===
-executor = concurrent.futures.ThreadPoolExecutor()
+# Anzahl der Threads an die CPU-Kerne des Pi 5 anpassen (z.B. 4 oder 6)
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=6) 
 
 # === Dictionary of responses ===
 responses = {
@@ -111,7 +112,7 @@ responses = {
 
 # === Functions ===
 def transcribe(audio_np):
-    try:
+    try:        
         result = model.transcribe(audio_np, language="en", fp16=False, no_speech_threshold=0.2)
         return result["text"].lower()
     except Exception as e:
@@ -122,7 +123,7 @@ async def transcribe_async(audio_np):
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, transcribe, audio_np)
 
-def stream_audio(samplerate=SAMPLERATE, block_duration=0.5, overlap=0.25):
+def stream_audio(samplerate=SAMPLERATE, block_duration=0.25, overlap=0.1): # Kleinere Blöcke
     block_size = int(samplerate * block_duration)
     overlap_size = int(samplerate * overlap)
     with sd.InputStream(samplerate=samplerate, channels=1, dtype='float32') as stream:
@@ -159,7 +160,7 @@ async def async_generator_wrapper(gen):
 async def listen_for_trigger():
     async for audio in async_generator_wrapper(stream_audio(SAMPLERATE)):
         text = await transcribe_async(audio)
-        print("Heard:", text)
+        # print("Heard:", text) # Auskommentiert für weniger Konsolenausgabe
         if any(w.startswith(TRIGGER_WORD[:3]) for w in text.split()):
             return True
     return False
@@ -172,8 +173,7 @@ async def main_loop():
     while True:
         current_time = time.time()
         if (current_time - last_trigger_time) < cooldown_seconds:
-            # Cooldown aktiv, kleine Pause
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.5) # Kurze Pause im Cooldown
             continue
 
         triggered = await listen_for_trigger()
@@ -193,7 +193,6 @@ async def main_loop():
             if "stop" in command:
                 print("Stopping...")
                 break
-
 
 if __name__ == "__main__":
     asyncio.run(main_loop())
