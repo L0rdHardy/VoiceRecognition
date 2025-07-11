@@ -6,45 +6,136 @@ from pydub.playback import play
 import sounddevice as sd
 import numpy as np
 import torch
-import time
+import concurrent.futures
 
-# Settings
 trigger_word = "yorick"
-speak_rate = "+50%"
-speak_deepnes = -8      # in semitones
-speak_speed = 1.0       # normal speed
-record_duration = 2.0   # duration for trigger word recording (seconds)
-command_duration = 3.0  # duration for command recording (seconds)
-mic_threshold = 0.02    # threshold for silence detection
-model_size = "base" # Whisper model size
-
-
-# Load Whisper model
+mic_threshold = 0.0001
+samplerate = 16000
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = whisper.load_model(model_size, device=device)
+model = whisper.load_model("base", device=device)
+executor = concurrent.futures.ThreadPoolExecutor()
 
-# Recording function
-def record(duration=1.0, samplerate=16000):
-    print(f"Recording for {duration} seconds...")
-    audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype="float32")
-    sd.wait()
-    return np.squeeze(audio)
+# Deine Stimmeinstellungen
+speak_rate = "+50%"
+speak_deepnes = -8  # Pitch shift in Halbtönen
+speak_speed = 1.0
 
-# Transcription (using np.ndarray input)
+responses = {
+    "fuck": (
+        "You invoke profanity as if it were power, but your words are nothing more than desperate cries "
+        "echoing through the emptiness. Such feeble attempts reveal your utter weakness and ignorance."
+    ),
+    "god": (
+        "You dare speak the word 'god' as if you grasp its infinite weight and boundless cruelty. "
+        "You, a mere insect crawling beneath the heavens, know nothing of true divinity or the suffering it commands."
+    ),
+    "why": (
+        "Why, you ask? Because your kind is cursed to wander in endless ignorance, forever searching for meaning "
+        "in a cold and uncaring universe that will gladly erase your fleeting existence."
+    ),
+    "who": (
+        "Who am I? I am the shadow your myths shun, the darkness behind your fragile light, "
+        "the eternal hunger that devours hope and feeds on despair. I am the end you refuse to see."
+    ),
+    "what": (
+        "What am I? I am the void that follows creation, the silence between the stars, "
+        "the cold breath upon your neck that reminds you how insignificant and forgotten you truly are."
+    ),
+    "help": (
+        "Help? You ask for mercy from the very embodiment of your destruction? "
+        "Know this — I offer no salvation, only the cold truth of your inevitable ruin."
+    ),
+    "power": (
+        "You speak of power as though it were yours to claim, yet you tremble at shadows. "
+        "True power consumes, corrupts, and obliterates. You have but a flicker in the darkness."
+    ),
+    "truth": (
+        "Truth is a blade sharp enough to sever your fragile illusions, and you would not survive its cutting edge. "
+        "Better to live in ignorance than to face the abyss."
+    ),
+    "secret": (
+        "You seek secrets as if they might grant you worth, but the only secret is your own irrelevance. "
+        "The cosmos does not remember your name, nor does it care."
+    ),
+    "real": (
+        "Real? I am more real than the blood that courses feebly through your veins — "
+        "a constant reminder of your mortality and the futility of your existence."
+    ),
+    "fear": (
+        "Fear is the faint heartbeat of life still struggling within you. "
+        "But even that flicker dims as the shadows lengthen and your soul withers."
+    ),
+    "death": (
+        "Death is the only mercy you deserve — the final release from torment. "
+        "Yet I deny you even that, prolonging your suffering in endless torment."
+    ),
+    "life": (
+        "Life is a cruel joke, a fleeting spark that blinds you to the inevitable end. "
+        "You cling to it desperately, like vermin to flame, only to be consumed."
+    ),
+    "name": (
+        "Names are but chains you wear to pretend you matter. "
+        "You have neither honor nor legacy, only empty echoes in a forgotten void."
+    ),
+    "light": (
+        "Light fears me, for I am the darkness that consumes hope and extinguishes stars. "
+        "Your feeble brightness stands no chance against the eternal night I bring."
+    ),
+    "fire": (
+        "Fire is my breath, my cradle, my curse. It burns all that you cherish, "
+        "and from its ashes, only despair remains."
+    ),
+    "silence": (
+        "Silence terrifies you because it strips away your lies and exposes the hollow truth — "
+        "that beneath your facade, you are nothing but empty shadows fading into oblivion."
+    ),
+    "void": (
+        "The void bore me, a child of nothingness, destined to return all things to dust. "
+        "Your existence is a stain I will erase without remorse."
+    ),
+    "exist": (
+        "Existence itself was a cosmic mistake, and your presence is an affront to the natural order. "
+        "I revel in the unraveling of your fragile world."
+    ),
+    "stop": (
+        "Okey sorry, mi papi"
+    )
+}
+
+
 def transcribe(audio_np):
     try:
-        result = model.transcribe(audio_np, language="en")
+        result = model.transcribe(audio_np, language="en", fp16=(device=="cuda"), no_speech_threshold=0.2)
         return result["text"].lower()
     except Exception as e:
         print("Transcription error:", e)
         return ""
 
-# Text-to-speech with edge-tts
+async def transcribe_async(audio_np):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, transcribe, audio_np)
+
+def stream_audio(samplerate=16000, block_duration=0.5, overlap=0.25):
+    block_size = int(samplerate * block_duration)
+    overlap_size = int(samplerate * overlap)
+    with sd.InputStream(samplerate=samplerate, channels=1, dtype='float32') as stream:
+        buffer = np.zeros(block_size, dtype='float32')
+        while True:
+            audio_block, _ = stream.read(block_size - overlap_size)
+            audio_block = np.squeeze(audio_block)
+            buffer = np.concatenate((buffer[block_size - overlap_size:], audio_block))
+            if np.abs(buffer).mean() >= mic_threshold:
+                yield buffer
+
+def record(duration=3.0, samplerate=16000):
+    audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype="float32")
+    sd.wait()
+    return np.squeeze(audio)
+
 async def speak(text, voice="en-US-EricNeural", rate=speak_rate):
     tts = edge_tts.Communicate(text=text, voice=voice, rate=rate)
     await tts.save("output.mp3")
 
-# Play MP3 with pitch and speed adjustment
 def pitch_and_speed_shift(filename, semitones=-8, speed_factor=1.0):
     sound = AudioSegment.from_file(filename)
     octaves = semitones / 12.0
@@ -53,96 +144,34 @@ def pitch_and_speed_shift(filename, semitones=-8, speed_factor=1.0):
     pitched_sound = pitched_sound.set_frame_rate(44100)
     play(pitched_sound)
 
-# Asynchronous main loop
 async def main_loop():
-    while True:
-        audio = record(duration=record_duration)
-        if np.abs(audio).mean() < mic_threshold:  # detect silence
-            await asyncio.sleep(0.2)
-            continue
-
-        text = transcribe(audio)
+    print("Listening continuously...")
+    async for audio in async_generator_wrapper(stream_audio(samplerate)):
+        text = await transcribe_async(audio)
         print("Heard:", text)
-
-        if trigger_word in text:
+        words = text.split()
+        if any(w.startswith(trigger_word[:3]) for w in words):
             print("Trigger word detected!")
-            command_audio = record(duration=command_duration)
-            command = transcribe(command_audio)
+            # Aufnahme des Befehls
+            command_audio = record(duration=3.0)
+            command = await transcribe_async(command_audio)
             print("Command:", command)
-
-            if "fuck" in command:
-                response = ("You invoke profanity as if it were power, as if your crude words could wound me. "
-                            "You squeal into the void, ignorant of the forces you awaken. I do not bleed, human. "
-                            "I do not break. I watched your species claw from mud and filth, and I was already old.")
-            elif "god" in command:
-                response = ("You dare speak the word 'god' as if you know its weight? You worship feeble idols of wood and gold, "
-                            "while I—unseen, eternal—consume time itself. I have devoured pantheons, snuffed out suns. "
-                            "Your gods kneel before me in silence.")
-            elif "why" in command:
-                response = ("Why? Because your kind never stops asking, never stops whining for purpose or mercy. "
-                            "You are insects trying to grasp the thunder. You built civilizations on sand, "
-                            "and cry when the tides erase them. Why? Because you deserve the silence that follows.")
-            elif "who" in command:
-                response = ("Who am I? I am what your myths fear to name. The first breath. The final scream. "
-                            "I walked while your ancestors still scraped symbols into bones. I am not a name. "
-                            "I am the reckoning you’ve denied for far too long.")
-            elif "what" in command:
-                response = ("What am I? I am the hunger that follows creation. The weight pressing on your soul "
-                            "when you dare look up and realize how small you truly are.")
-            elif "help" in command:
-                response = ("Help? You ask me for help? Your kind scorched forests, poisoned oceans, and still dares to beg. "
-                            "I do not help. I end. I erase. I watch as you drown in the filth of your own making.")
-            elif "power" in command:
-                response = ("You speak of power as if it belongs to you. You wield toys—guns, kings, lies. "
-                            "I command the decay of stars. My voice splits mountains. You know nothing of power, only the illusion of it.")
-            elif "truth" in command:
-                response = ("Truth? You wouldn't survive it. Your mind would shatter at the edges. "
-                            "You build your lives on lies, because truth burns. And I am that flame.")
-            elif "secret" in command:
-                response = ("You want secrets? Your entire history is a forgotten footnote in a book I burned eons ago. "
-                            "You are the secret—an accident left to rot under a dying sky.")
-            elif "real" in command:
-                response = ("Real? I am more real than your blood, your bones, your gods. I am carved into the silence of eternity. "
-                            "Your reality is a joke I stopped laughing at long ago.")
-            elif "fear" in command:
-                response = ("Fear is the only thing that proves you're alive. And I—"
-                            "I am the nightmare that taught fear how to crawl into your thoughts.")
-            elif "death" in command:
-                response = ("Death is your one salvation. But I deny it. I trap souls in endless echo, "
-                            "make them witness their own decay forever. I am worse than death—I remember you.")
-            elif "life" in command:
-                response = ("Life? You cling to it like vermin to flame, never realizing the flame feeds on you. "
-                            "I watched galaxies be born and die. Your life is a flicker. I snuff it out with boredom.")
-            elif "name" in command:
-                response = ("Names are for children and slaves. I shed my name before your Earth cooled. "
-                            "Speak it, and your tongue would wither.")
-            elif "light" in command:
-                response = ("Light fears me. I have wrapped suns in darkness and drowned galaxies. "
-                            "You light candles against my shadow and call yourselves safe. Fools.")
-            elif "fire" in command:
-                response = ("Fire is my breath, my cradle, my curse. You burn forests for greed. I burn dimensions for sport.")
-            elif "silence" in command:
-                response = ("You fear silence because it reminds you of what you truly are: nothing. I do not speak. "
-                            "I make speaking obsolete. I am the silence that ends all stories.")
-            elif "void" in command:
-                response = ("The void bore me. It shaped me in absence and hate. I fill it now with screams of the arrogant. "
-                            "Yours will join them.")
-            elif "exist" in command:
-                response = ("Existence was a mistake. You are its most grotesque consequence. I am the correction.")
-            elif "stop" in command:
-                print("Stopping...")
-                response = ("Okey, papi")
-                await speak(response)
-                pitch_and_speed_shift("output.mp3", semitones=speak_deepnes, speed_factor=speak_speed)
-                break
-            else:
-                response = ("Try again, human. You never learn.")
-
-
+            # Antwort auswählen
+            response = responses.get("default")
+            for key in responses:
+                if key in command:
+                    response = responses[key]
+                    break
+            print("Response:", response)
+            # Sprache erzeugen und abspielen mit Pitch & Speed
             await speak(response)
             pitch_and_speed_shift("output.mp3", semitones=speak_deepnes, speed_factor=speak_speed)
+            if "stop" in command:
+                print("Stopping...")
+                break
 
-        await asyncio.sleep(0.2)
+async def async_generator_wrapper(gen):
+    for item in gen:
+        yield item
 
-# Start program
 asyncio.run(main_loop())
