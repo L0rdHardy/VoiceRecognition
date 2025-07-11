@@ -8,29 +8,29 @@ import numpy as np
 import torch
 import time
 
-# Einstellungen
+# Settings
 trigger_word = "yorick"
 speak_rate = "+50%"
-speak_deepnes = -8      # in Halbtonschritten
-speak_speed = 1.0       # normal
-record_duration = 2.0   # Dauer für Triggerwort
-command_duration = 3.0  # Dauer für Befehl
-mic_threshold = 0.02  # Schwelle für Stille
-model_size = "large-v3"  # Whisper-Modellgröße
+speak_deepnes = -8      # in semitones
+speak_speed = 1.0       # normal speed
+record_duration = 2.0   # duration for trigger word recording (seconds)
+command_duration = 3.0  # duration for command recording (seconds)
+mic_threshold = 0.02    # threshold for silence detection
+model_size = "large-v3" # Whisper model size
 
 
-# Whisper-Modell laden
+# Load Whisper model
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = whisper.load_model(model_size, device=device)
 
-# Aufnahmefunktion
+# Recording function
 def record(duration=1.0, samplerate=16000):
     print(f"Recording for {duration} seconds...")
     audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype="float32")
     sd.wait()
     return np.squeeze(audio)
 
-# Transkription (direkt mit np.ndarray)
+# Transcription (using np.ndarray input)
 def transcribe(audio_np):
     try:
         result = model.transcribe(audio_np, language="en")
@@ -39,12 +39,12 @@ def transcribe(audio_np):
         print("Transcription error:", e)
         return ""
 
-# Text-zu-Sprache mit edge-tts
+# Text-to-speech with edge-tts
 async def speak(text, voice="en-US-EricNeural", rate=speak_rate):
     tts = edge_tts.Communicate(text=text, voice=voice, rate=rate)
     await tts.save("output.mp3")
 
-# MP3 abspielen mit Pitch & Speed
+# Play MP3 with pitch and speed adjustment
 def pitch_and_speed_shift(filename, semitones=-8, speed_factor=1.0):
     sound = AudioSegment.from_file(filename)
     octaves = semitones / 12.0
@@ -53,11 +53,11 @@ def pitch_and_speed_shift(filename, semitones=-8, speed_factor=1.0):
     pitched_sound = pitched_sound.set_frame_rate(44100)
     play(pitched_sound)
 
-# Asynchrone Hauptschleife
+# Asynchronous main loop
 async def main_loop():
     while True:
         audio = record(duration=record_duration)
-        if np.abs(audio).mean() < mic_threshold:  # Stille erkennen
+        if np.abs(audio).mean() < mic_threshold:  # detect silence
             await asyncio.sleep(0.2)
             continue
 
@@ -90,5 +90,5 @@ async def main_loop():
 
         await asyncio.sleep(0.2)
 
-# Programm starten
+# Start program
 asyncio.run(main_loop())
