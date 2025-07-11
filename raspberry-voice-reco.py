@@ -6,6 +6,7 @@ from pydub.playback import play
 import sounddevice as sd
 import numpy as np
 import concurrent.futures
+import time
 
 # === Variables for voice and audio settings ===
 VOICE = "en-US-EricNeural"
@@ -14,13 +15,13 @@ PITCH_SEMITONES = -8
 PITCH_SPEED_FACTOR = 1.0
 
 # === Audio and model settings ===
-TRIGGER_WORD = "yorick"
-MIC_THRESHOLD = 0.0001
+TRIGGER_WORD = "steve"
+MIC_THRESHOLD = 0.001  # realistisch setzen, keine 0
 SAMPLERATE = 16000
 DEVICE = "cpu"  # Force CPU usage on Raspberry Pi
 
 # === Load Whisper model ===
-model = whisper.load_model("tiny", device=DEVICE) # Tiny = 15%, Base = 30%, Small = 50%, Medium = 80%, Large = 100% on a I7 14700kf
+model = whisper.load_model("tiny.en", device=DEVICE)
 
 # === Thread executor for async operations ===
 executor = concurrent.futures.ThreadPoolExecutor()
@@ -155,13 +156,29 @@ async def async_generator_wrapper(gen):
     for item in gen:
         yield item
 
-async def main_loop():
-    print("Listening continuously...")
+async def listen_for_trigger():
     async for audio in async_generator_wrapper(stream_audio(SAMPLERATE)):
         text = await transcribe_async(audio)
         print("Heard:", text)
-        words = text.split()
-        if any(w.startswith(TRIGGER_WORD[:3]) for w in words):
+        if any(w.startswith(TRIGGER_WORD[:3]) for w in text.split()):
+            return True
+    return False
+
+async def main_loop():
+    print("Listening continuously...")
+    cooldown_seconds = 5
+    last_trigger_time = 0
+
+    while True:
+        current_time = time.time()
+        if (current_time - last_trigger_time) < cooldown_seconds:
+            # Cooldown aktiv, kleine Pause
+            await asyncio.sleep(0.5)
+            continue
+
+        triggered = await listen_for_trigger()
+        if triggered:
+            last_trigger_time = time.time()
             print("Trigger word detected!")
             command_audio = record(duration=3.0)
             command = await transcribe_async(command_audio)
@@ -176,6 +193,7 @@ async def main_loop():
             if "stop" in command:
                 print("Stopping...")
                 break
+
 
 if __name__ == "__main__":
     asyncio.run(main_loop())

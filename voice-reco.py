@@ -99,9 +99,11 @@ responses = {
     ),
     "stop": (
         "Okey sorry, mi papi"
+    ),
+    "default": (
+        "I do not understand you."
     )
 }
-
 
 def transcribe(audio_np):
     try:
@@ -144,6 +146,10 @@ def pitch_and_speed_shift(filename, semitones=-8, speed_factor=1.0):
     pitched_sound = pitched_sound.set_frame_rate(44100)
     play(pitched_sound)
 
+async def async_generator_wrapper(gen):
+    for item in gen:
+        yield item
+
 async def main_loop():
     print("Listening continuously...")
     async for audio in async_generator_wrapper(stream_audio(samplerate)):
@@ -152,26 +158,21 @@ async def main_loop():
         words = text.split()
         if any(w.startswith(trigger_word[:3]) for w in words):
             print("Trigger word detected!")
-            # Aufnahme des Befehls
             command_audio = record(duration=3.0)
             command = await transcribe_async(command_audio)
+            if not isinstance(command, str):
+                command = ""
             print("Command:", command)
-            # Antwort auswählen
-            response = responses.get("default")
+            response = responses["default"]
             for key in responses:
                 if key in command:
                     response = responses[key]
                     break
             print("Response:", response)
-            # Sprache erzeugen und abspielen mit Pitch & Speed
             await speak(response)
             pitch_and_speed_shift("output.mp3", semitones=speak_deepnes, speed_factor=speak_speed)
             if "stop" in command:
                 print("Stopping...")
                 break
-
-async def async_generator_wrapper(gen):
-    for item in gen:
-        yield item
 
 asyncio.run(main_loop())
