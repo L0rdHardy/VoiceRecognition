@@ -1,27 +1,51 @@
-import speech_recognition as sr
+import whisper
 import asyncio
 import edge_tts
-import pygame
 from pydub import AudioSegment
 from pydub.playback import play
+import sounddevice as sd
+import numpy as np
+import torch
+import time
 
-speech_engine = sr.Recognizer()
-pygame.mixer.init()
+# Einstellungen
+trigger_word = "yorick"
+speak_rate = "+50%"
+speak_deepnes = -8      # in Halbtonschritten
+speak_speed = 1.0       # normal
+record_duration = 2.0   # Dauer für Triggerwort
+command_duration = 3.0  # Dauer für Befehl
+mic_threshold = 0.02  # Schwelle für Stille
+model_size = "large-v3"  # Whisper-Modellgröße
 
-#######
-# Some nice changers for the voice
-speak_rate = "+50%"  # +50% faster
-speak_deepnes = float(-8)  # -8 semitones deeper
-speak_speed = float(1.0)  # Normal speed
-#######
 
-# Sprachausgabe mit edge-tts (nur zum Erzeugen der Datei)
+# Whisper-Modell laden
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = whisper.load_model(model_size, device=device)
+
+# Aufnahmefunktion
+def record(duration=1.0, samplerate=16000):
+    print(f"Recording for {duration} seconds...")
+    audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype="float32")
+    sd.wait()
+    return np.squeeze(audio)
+
+# Transkription (direkt mit np.ndarray)
+def transcribe(audio_np):
+    try:
+        result = model.transcribe(audio_np, language="en")
+        return result["text"].lower()
+    except Exception as e:
+        print("Transcription error:", e)
+        return ""
+
+# Text-zu-Sprache mit edge-tts
 async def speak(text, voice="en-US-EricNeural", rate=speak_rate):
     tts = edge_tts.Communicate(text=text, voice=voice, rate=rate)
     await tts.save("output.mp3")
 
-# Audio mit Pitch und Speed Shift abspielen
-def pitch_and_speed_shift(filename, semitones=-3, speed_factor=1.5):
+# MP3 abspielen mit Pitch & Speed
+def pitch_and_speed_shift(filename, semitones=-8, speed_factor=1.0):
     sound = AudioSegment.from_file(filename)
     octaves = semitones / 12.0
     new_sample_rate = int(sound.frame_rate * (2.0 ** octaves) * speed_factor)
@@ -29,32 +53,42 @@ def pitch_and_speed_shift(filename, semitones=-3, speed_factor=1.5):
     pitched_sound = pitched_sound.set_frame_rate(44100)
     play(pitched_sound)
 
-# Spracherkennung über Mikrofon
-def from_microphone():
-    with sr.Microphone() as micro:
-        print("Recording...")
-        audio = speech_engine.listen(micro, timeout=10)
-        print("Recognition...")
-        try:
-            return speech_engine.recognize_google(audio, language="en-US")
-        except sr.UnknownValueError:
-            print("Could not understand audio")
-            return ""
-        except sr.RequestError as e:
-            print(f"Google API error: {e}")
-            return ""
+# Asynchrone Hauptschleife
+async def main_loop():
+    while True:
+        audio = record(duration=record_duration)
+        if np.abs(audio).mean() < mic_threshold:  # Stille erkennen
+            await asyncio.sleep(0.2)
+            continue
 
-# Hauptlogik
-text = from_microphone().lower()
-print(text)
-if "who the fuck are you" in text:
-    response = ("Who am I? I am the silence before thought, the breath before time. I was when your world was formless, and I will be long after your name is forgotten. You ask who I am—but you lack even the language to understand the answer.")
-elif "you ain't a god" in text:
-    response = ("You dare? You—flesh-bound insect—dare deny what your soul trembles to comprehend? I scorched suns into being with a thought while your kind still feared the dark. You name me false? Then tremble, for I shall show you what a god is—and what you are not.")
-else:
-    response = ("Try again, human")
-# Text zu Sprache erzeugen (Datei speichern)
-asyncio.run(speak(response))
+        text = transcribe(audio)
+        print("Heard:", text)
 
-# Datei mit Pitch- und Speed-Shift abspielen
-pitch_and_speed_shift("output.mp3", semitones=speak_deepnes, speed_factor=speak_speed)
+        if trigger_word in text:
+            print("Trigger word detected!")
+            await speak("hmmmm")
+            pitch_and_speed_shift("output.mp3", semitones=speak_deepnes, speed_factor=speak_speed)
+
+            command_audio = record(duration=command_duration)
+            command = transcribe(command_audio)
+            print("Command:", command)
+
+            if "fuck" in command:
+                response = ("Who am I? I am the silence before thought, the breath before time. "
+                            "I was when your world was formless, and I will be long after your name is forgotten.")
+            elif "god" in command:
+                response = ("You dare? You—flesh-bound insect—dare deny what your soul trembles to comprehend? "
+                            "I scorched suns into being with a thought while your kind still feared the dark.")
+            elif "stop" in command:
+                print("Stopping...")
+                break
+            else:
+                response = ("Try again, human.")
+
+            await speak(response)
+            pitch_and_speed_shift("output.mp3", semitones=speak_deepnes, speed_factor=speak_speed)
+
+        await asyncio.sleep(0.2)
+
+# Programm starten
+asyncio.run(main_loop())
