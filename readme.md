@@ -1,3 +1,14 @@
+To-Do
+Voice activation (via Button)
+Voice recognition via AI (whisper oder so)
+Voice Commands 
+    Voice Output
+    Actions via GPIO Pins
+Face recognition (15 FPs)
+Motorsteuerung via GPIO Pins
+
+
+
 # Voice Command AI with Whisper & edge-tts
 
 This Python script enables voice-controlled interaction using a trigger word and subsequent command processing. It uses OpenAI Whisper for speech recognition and Microsoft edge-tts for speech synthesis. The voice output can be modulated in pitch and speed.
