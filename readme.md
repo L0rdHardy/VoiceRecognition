@@ -1,11 +1,11 @@
 # To-Do
-- Voice activation (via Button)<br>
-- Voice recognition via AI (whisper oder so)<br>
-- Voice Commands <br>
--- Voice Output<br>
--- Actions via GPIO Pins<br>
-- Face recognition (15 FPs)<br>
-- Motorsteuerung via GPIO Pins<br>
+- Voice activation (via Button)
+- Voice recognition via AI (whisper oder so)
+- Voice Commands
+    - Voice Output
+    - Actions via GPIO Pins
+- Face recognition (https://www.youtube.com/watch?v=zwiKIzvGAhM&list=PLNmsVeXQZj7p09TLbRQmqzbH81DHjBO8E&index=12) 
+- Motorsteuerung via GPIO Pins
 
 ---
 
