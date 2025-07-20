@@ -16,13 +16,13 @@ def callback(indata, frames, time, status):
 
 with sd.RawInputStream(samplerate=samplerate, blocksize=8000, dtype='int16',
                        channels=1, callback=callback, device=device):
-    print("🟢 Vosk Test läuft... (STRG+C zum Beenden)")
+    print("<< Vosk Test läuft... (STRG+C zum Beenden)")
     rec = vosk.KaldiRecognizer(model, samplerate)
     try:
         while True:
             data = q.get()
             if rec.AcceptWaveform(data):
                 result = json.loads(rec.Result())
-                print("🗣️", result.get("text", ""))
+                print(">> ", result.get("text", ""))
     except KeyboardInterrupt:
-        print("\n🔴 Beendet.")
+        print("\n<< Beendet.")
